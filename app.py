@@ -1,11 +1,16 @@
 from flask import Flask, render_template, request
 import pickle
-from PyPDF2 import PdfReader
 import re
 import pdfplumber
+import cv2
+import pytesseract as pyt
+import numpy as np
 
 
 app = Flask(__name__)
+
+pyt.pytesseract.tesseract_cmd = r'C:/Users/IBE/AppData/Local/Programs/Tesseract-OCR/tesseract.exe'
+
 
 # Load models
 try:
@@ -17,15 +22,6 @@ except Exception as e:
     print(f"Error loading model or vectorizer: {e}")
     raise
 
-# Helper functions
-# def pdf_to_text(file):
-#     reader = PdfReader(file)
-#     text = ''
-#     for page in range(len(reader.pages)):
-#         text += reader.pages[page].extract_text()
-#     print("Raw Extracted Text:", text)
-#     return text
-
 
 def pdf_to_text(file_path):
     try:
@@ -36,12 +32,23 @@ def pdf_to_text(file_path):
             for page in pdf.pages:
                 # Extract text from each page
                 extracted_text += page.extract_text() + "\n"
-                print(extracted_text)
             return extracted_text
     except Exception as e:
         return f"An error occurred while extracting text: {e}"
     
-
+def image_to_text(file):
+    # Read the file as a numpy array
+    file_bytes = np.frombuffer(file.read(), np.uint8)
+    
+    # Decode the numpy array into an image
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    
+    if img is None:
+        raise ValueError("Failed to decode the image. Please upload a valid JPG file.")
+    
+    # Now process the image (example with pytesseract)
+    text = pyt.image_to_string(img)
+    return text
 
 
 def cleanResume(txt):
@@ -67,13 +74,21 @@ def job_recommendation(resume_text):
     predicted_job = rf_classifier_recommendation.predict(resume_tfidf)[0]
     return predicted_job
 
+def extract_name_from_resume(text):
+    name = None
+    pattern = r"(\b[A-Z]\.\s?[A-Z][a-z]+\b|\b[A-Z][a-z]+\s[A-Z]\b|\b[A-Z]\s[A-Z][a-z]+\b|\b[A-Z][a-z]+\s[A-Z]\.\b|\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)"
+    match = re.search(pattern, text)
+    if match:
+        name = match.group()
+    return name
+
 def extract_contact_number_from_resume(text):
     contact_number = None
     pattern = r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"
     match = re.search(pattern, text)
     if match:
         contact_number = match.group()
-    return contact_number
+    return "+" + contact_number
 
 def extract_email_from_resume(text):
   email = None
@@ -148,91 +163,58 @@ def extract_skills_from_resume(text):
     "GDPR", "HIPAA", "PCI-DSS", "SOX", "ISO 27001", "NIST", "COBIT", "IT Risk Management", "SOC 2 Compliance", "Data Privacy",
     ]
   
-  skills = []
+  skills = set()
 
   for skill in skills_list:
     pattern = r"\b{}\b".format(re.escape(skill))
     match = re.search(pattern,text,re.IGNORECASE)
     if match:
-      skills.append(skill)
-  return skills
+      skills.add(match.group())
+  return list(skills)
+
 
 def extract_education_from_resume(text):
     education = set()  # Use a set to avoid duplicates
 
-    education_keywords = [
-        # Degrees and Certifications
+    # Define Degrees and Certifications and Fields of Study
+    degrees_and_certifications = [
         "Bachelor of Science", "B.Sc.", "Bachelor of Arts", "B.A.", "Master of Science", "M.Sc.",
         "Master of Arts", "M.A.", "Master of Business Administration", "MBA", "Doctor of Philosophy",
-        "Ph.D.", "Associate Degree", "Diploma", "Certificate", "Professional Certification",
-        
-        # Fields of Study
+        "Ph.D.", "Associate Degree", "Diploma", "Certificate", "Professional Certification", "BSc","BE", 
+        "B.E.", "B.Tech", "M.Sc", "M.E.", "M.Tech", "Ph.D", "PhD"
+    ]
+
+    fields_of_study = [
         "Computer Science", "Information Technology", "Software Engineering", "Electrical Engineering",
         "Mechanical Engineering", "Civil Engineering", "Business Administration", "Marketing",
         "Finance", "Accounting", "Economics", "Psychology", "Biology", "Physics", "Mathematics",
-        "Statistics", "Chemistry", "Environmental Science", "Education", "Nursing", "Medicine",
+        "Statistics", "Chemistry", "Environmental Science", "Nursing", "Medicine",
         "Pharmacy", "Law", "Architecture", "Data Science", "Artificial Intelligence", "Machine Learning",
-        "Cybersecurity", "Web Development", "Game Development", "Graphic Design", "Digital Marketing",
-        
-        # Diplomas and Short Courses
-        "Diploma in Computer Applications", "Diploma in Web Design", "Diploma in Accounting",
-        "Diploma in Digital Marketing", "Diploma in Cybersecurity", "Diploma in Graphic Design",
-        "Short Course in Data Analysis", "Short Course in Project Management",
-        "Short Course in Software Development", "Certificate in Cloud Computing",
-        
-        # Academic Achievements
-        "Honor Roll", "Dean's List", "Summa Cum Laude", "Magna Cum Laude", "Cum Laude",
-        "Valedictorian", "Salutatorian", "Scholarship Recipient", "Research Assistant",
-        "Teaching Assistant", "Publication in Journal", "Conference Presentation",
-        
-        # Institutions and Affiliations
-        "Harvard University", "Stanford University", "MIT", "University of Oxford",
-        "University of Cambridge", "Ivy League", "Community College", "Technical Institute",
-        "Vocational School", "Open University", "Online Courses", "Coursera", "edX", "Udemy",
-        
-        # Online Learning and MOOC
-        "Online Certification", "MOOC", "Coursera", "edX", "Udemy", "Khan Academy", "LinkedIn Learning",
-        "Skillshare", "Pluralsight", "DataCamp", "Google Certifications", "AWS Certification",
-        "Microsoft Certified", "CompTIA Certification", "Cisco Certified", "Oracle Certified",
-        
-        # Professional Certifications
-        "Certified Scrum Master", "PMP", "Project Management Professional", "AWS Certified Solutions Architect",
-        "Google Data Analytics Professional Certificate", "Microsoft Certified Azure Fundamentals",
-        "CompTIA Security+", "Cisco Certified Network Associate", "ITIL Certification",
-        "Certified Ethical Hacker", "Certified Information Systems Security Professional (CISSP)",
-        "Certified Data Scientist", "Certified Machine Learning Specialist",
-        
-        # Education Levels
-        "High School Diploma", "GED", "Bachelor's Degree", "Master's Degree", "Doctorate",
-        "Postgraduate", "Undergraduate", "Pre-Med", "Postdoc", "Associate Degree", "Vocational Training",
-        
-        # Skills and Tools in Education
-        "Research Skills", "Academic Writing", "Teaching Skills", "Learning Management Systems (LMS)",
-        "Curriculum Development", "Pedagogy", "Instructional Design", "Tutoring",
-        "Online Teaching", "Educational Technology", "Blackboard", "Moodle", "Canvas",
-        
-        # Others
-        "Internship", "Co-op", "Fellowship", "Apprenticeship", "Exchange Program",
-        "Summer School", "Distance Learning", "Work-Study", "Study Abroad", "Professional Development",
-        "Career Counseling", "Academic Advisor", "Thesis", "Dissertation", "Capstone Project"
+        "Cybersecurity", "Web Development", "Game Development", "Graphic Design", "Digital Marketing"
     ]
+    
+    # Create patterns for degrees and fields of study
+    degree_pattern = r"(?i)\b(?:{})\b".format("|".join(map(re.escape, degrees_and_certifications)))
+    field_pattern = r"(?i)\b(?:{})\b".format("|".join(map(re.escape, fields_of_study)))
 
-    for keyword in education_keywords:
-        pattern = r"(?i)\b{}\b".format(re.escape(keyword))
-        match = re.search(pattern, text)
-        if match:
-            education.add(match.group())
+    # Find all matches for degrees and fields of study in the text
+    degree_matches = re.finditer(degree_pattern, text)
+    field_matches = re.finditer(field_pattern, text)
+    
+    # Extract all positions (indices) of the matches
+    degree_positions = [match.span() for match in degree_matches]
+    field_positions = [match.span() for match in field_matches]
+
+    # Now, check if degrees and fields of study are near each other
+    for degree_start, degree_end in degree_positions:
+        for field_start, field_end in field_positions:
+            # Check if the matches are within a range of characters (e.g., 50 characters)
+            if abs(degree_start - field_start) <= 50:
+                # If they are near each other, add both degree and field to the result
+                education.add(text[degree_start:degree_end].strip())
+                education.add(text[field_start:field_end].strip())
 
     return list(education)
-
-def extract_name_from_resume(text):
-  name = None
-
-  pattern = r"(\b[A-Z][a-z]+\b)\s(\b[A-Z][a-z]+\b)"
-  match = re.search(pattern,text)
-  if match:
-    name = match.group()
-  return name
 
 
 @app.route('/')
@@ -249,8 +231,10 @@ def pred():
             text = pdf_to_text(file)
         elif filename.endswith('.txt'):
             text = file.read().decode('utf-8')
+        elif filename.endswith('.jpg') or filename.endswith('.jpeg'):
+            text = image_to_text(file)
         else:
-            return render_template('resume.html', message='Invalid file format. Please upload a PDF or TXT file.')
+            return render_template('resume.html', message='Invalid file format. Please upload a PDF, TXT, or JPG file.')
 
         predicted_category = predict_category(text)
         recommended_job = job_recommendation(text)
@@ -263,9 +247,9 @@ def pred():
         
         return render_template('resume.html', predicted_category=predicted_category, recommended_job=recommended_job,
                                phone=phone, email=email, name=name, skills=skills, education=education)
-        
     else:
         return render_template('resume.html', message='No Resume uploaded.')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
