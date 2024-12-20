@@ -27,7 +27,6 @@ MarkupSafe==3.0.2
 mdurl==0.1.2
 mysql-connector-python==9.1.0
 packaging==24.2
-pickle
 pipwin==0.5.2
 psycopg==3.2.3
 psycopg2==2.9.10
@@ -42,7 +41,6 @@ pySmartDL==1.3.4
 python-dotenv==1.0.1
 python-multipart==0.0.19
 PyYAML==6.0.2
-re
 requests==2.32.3
 rich==13.9.4
 rich-toolkit==0.12.0
