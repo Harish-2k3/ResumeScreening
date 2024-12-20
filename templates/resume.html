@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <title>Resume Upload</title>
+        <style>
+            /* General Reset */
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                height: 100vh;
+            }
+
+            /* Card Container */
+            .container {
+                background-color: #ffffff;
+                border-radius: 10px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                padding: 30px 40px;
+                max-width: 400px;
+                height:200px;
+                width: 100%;
+                text-align: center;
+                margin-top:20px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+                color: #333;
+                margin-bottom: 20px;
+            }
+
+            /* Style the Form */
+            form {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            input[type="file"] {
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background-color: #f9f9f9;
+                font-size: 1rem;
+                outline: none;
+                transition: border-color 0.3s ease;
+            }
+
+            input[type="file"]:focus {
+                border-color: #5c6bc0;
+            }
+
+            input[type="submit"] {
+                padding: 12px;
+                font-size: 1rem;
+                color: #fff;
+                background-color: #5c6bc0;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            }
+
+            input[type="submit"]:hover {
+                background-color: #3949ab;
+            }
+
+            /* Add Subtle Background */
+            body::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-image: linear-gradient(to bottom right, #a7c7e7, #e8f1f2);
+                z-index: -1;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <h1>Upload your Resume</h1>
+            <form action="/pred" method = "post" enctype = "multipart/form-data">
+                <input type="file" name="resume" accept=".pdf, .txt", required>
+                <input type="submit" value="submit">
+            </form>
+
+            {% if message %}
+            <p class="text-center">{{message}}</p>
+            {% endif %}
+
+            {% if predicted_category %}
+            <br>
+            <hr>
+            <br>
+            <p>Category : {{predicted_category}}</p>
+            <p>Recommended Job : {{recommended_job}}</p>
+            <h1>Extacted Information</h1>
+            <p>Name : {{name}}</p>
+            <p>Phone No : {{phone}}</p>
+            <p>Email : {{email}}</p>
+            <p>Skills : {{skills}}</p>
+            <p>Education : {{education}}</p>
+            {% endif %}
+        </div>
+    </body>
+</html>
