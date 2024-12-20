@@ -7,24 +7,6 @@ import pdfplumber
 
 app = Flask(__name__)
 
-# Load models
-try:
-    rf_classifier_categorization = pickle.load(open('models/rf_classifier_categorization.pkl', 'rb'))
-    tfidf_vectorizer_categorization = pickle.load(open('models/tfidf_vectorizer_categorization.pkl', 'rb'))
-    rf_classifier_recommendation = pickle.load(open('models/rf_classifier_job_recommendation.pkl', 'rb'))
-    tfidf_vectorizer_recommendation = pickle.load(open('models/tfidf_vectorizer_job_recommendation.pkl', 'rb'))
-except Exception as e:
-    print(f"Error loading model or vectorizer: {e}")
-    raise
-
-# Helper functions
-# def pdf_to_text(file):
-#     reader = PdfReader(file)
-#     text = ''
-#     for page in range(len(reader.pages)):
-#         text += reader.pages[page].extract_text()
-#     print("Raw Extracted Text:", text)
-#     return text
 
 
 def pdf_to_text(file_path):
@@ -54,18 +36,6 @@ def cleanResume(txt):
     cleanText = re.sub('\s+', ' ', cleanText)
     return cleanText
 
-def predict_category(resume_text):
-    resume_text = cleanResume(resume_text)
-    print("Cleaned Resume Text:", resume_text)  # Debugging line
-    resume_tfidf = tfidf_vectorizer_categorization.transform([resume_text])
-    predicted_category = rf_classifier_categorization.predict(resume_tfidf)[0]
-    return predicted_category
-
-def job_recommendation(resume_text):
-    resume_text = cleanResume(resume_text)
-    resume_tfidf = tfidf_vectorizer_recommendation.transform([resume_text])
-    predicted_job = rf_classifier_recommendation.predict(resume_tfidf)[0]
-    return predicted_job
 
 def extract_contact_number_from_resume(text):
     contact_number = None
@@ -252,8 +222,7 @@ def pred():
         else:
             return render_template('resume.html', message='Invalid file format. Please upload a PDF or TXT file.')
 
-        predicted_category = predict_category(text)
-        recommended_job = job_recommendation(text)
+     
         name = extract_name_from_resume(text)
         phone = extract_contact_number_from_resume(text)
         email = extract_email_from_resume(text)
@@ -261,7 +230,7 @@ def pred():
         skills = extract_skills_from_resume(text)
         education = extract_education_from_resume(text)
         
-        return render_template('resume.html', predicted_category=predicted_category, recommended_job=recommended_job,
+        return render_template('resume.html',
                                phone=phone, email=email, name=name, skills=skills, education=education)
         
     else:
